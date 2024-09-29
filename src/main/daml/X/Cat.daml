@@ -1,0 +1,13 @@
+module X.Cat where
+
+import X.Animal (Animal, AnimalViewType(..))
+
+
+template Cat with
+    owner : Party
+  where
+    signatory owner
+    interface instance Animal for Cat where
+        view = AnimalViewType { name = "Cat", owner' = owner }
+        owner = owner
+        call = "meow"

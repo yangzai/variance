@@ -1,0 +1,12 @@
+sdk-version: 2.9.4
+name: variance
+version: 0.0.1
+source: src/main/daml
+dependencies:
+- daml-prim
+- daml-stdlib
+- daml-script
+data-dependencies:
+- .lib/daml-ctl/v2.4.1/daml-ctl-2.4.1.dar
+start-navigator: false
+init-script: X.Main:main

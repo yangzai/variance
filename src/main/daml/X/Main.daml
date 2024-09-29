@@ -1,0 +1,72 @@
+module X.Main where
+
+import Daml.Script
+import DA.Assert ((===))
+import Daml.Data.Functor.Contravariant (Contravariant(..), contramap)
+import Daml.Data.Profunctor (Profunctor(..), dimap, lmap, rmap)
+
+import X.Animal (Animal)
+import X.Cat (Cat(..))
+
+
+widen : forall i t f. (Functor f, HasToInterface t i) => f t -> f i
+widen = fmap toInterface
+
+widenCid : forall i t f. (Functor f, HasToInterface t i) => f (ContractId t) -> f (ContractId i)
+widenCid = fmap toInterfaceContractId
+
+narrow : forall t i f. (Contravariant f, HasToInterface t i) => f i -> f t
+narrow = contramap toInterface
+
+narrowCid : forall t i f. (Contravariant f, HasToInterface t i) => f (ContractId i) -> f (ContractId t)
+narrowCid = contramap toInterfaceContractId
+
+narrowWiden : forall t i t' i' f. (Profunctor f, HasToInterface t i', HasToInterface t' i) => f i' t' -> f t i
+narrowWiden = dimap toInterface toInterface
+
+narrowWidenCid : forall t i t' i' f. (Profunctor f, HasToInterface t i', HasToInterface t' i) => f (ContractId i') (ContractId t') -> f (ContractId t) (ContractId i)
+narrowWidenCid = dimap toInterfaceContractId toInterfaceContractId
+
+lnarrow : forall t i f a. (Profunctor f, HasToInterface t i) => f i a -> f t a
+lnarrow = lmap toInterface
+
+lnarrowCid : forall t i f a. (Profunctor f, HasToInterface t i) => f (ContractId i) a -> f (ContractId t) a
+lnarrowCid = lmap toInterfaceContractId
+
+rwiden : forall i t f a. (Profunctor f, HasToInterface t i) => f a t -> f a i
+rwiden = rmap toInterface
+
+rwidenCid : forall i t f a. (Profunctor f, HasToInterface t i) => f a (ContractId t) -> f a (ContractId i)
+rwidenCid = rmap toInterfaceContractId
+
+(<$$>) : (Functor f, Functor g) => (a -> b) -> f (g a) -> f (g b)
+(<$$>) = fmap . fmap
+
+getAnimalNameTypeWith : Party -> ContractId Animal -> Script (Optional Text)
+getAnimalNameTypeWith p cid =
+    (.name) <$$> queryInterfaceContractId p cid
+
+
+main : Script ()
+main = do
+    alice <- allocatePartyWithHint <*> PartyIdHint $ "alice"
+
+    catCid <- submit alice $ createCmd Cat with owner = alice
+
+    animalCid <- submit alice $
+      toInterfaceContractId @Animal <$> createCmd Cat with owner = alice
+    animalCid <- submit alice $
+      widenCid @Animal $ createCmd Cat with owner = alice
+
+    let getAnimalNameWithAlice = getAnimalNameTypeWith alice
+        getCatNameWithAlice = lnarrowCid getAnimalNameWithAlice
+
+    -- we can widen a cat to an animal at the covariant postion of `Commands (ContractId Cat)`
+    -- before passing it into the function
+    res <- getAnimalNameWithAlice animalCid
+    -- or we can narrow a function `ContractId Animal -> Script (Optional Text)`
+    -- that takes an animal into taking a cat at the contravariant position, before passing the cat in
+    res' <- getCatNameWithAlice catCid
+    
+    res === Some "Cat"
+    res' === res

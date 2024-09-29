@@ -1,0 +1,10 @@
+module X.Animal where
+
+data AnimalViewType =
+  AnimalViewType { name : Text, owner' : Party }
+    deriving Show
+
+interface Animal where
+    viewtype AnimalViewType
+    owner : Party
+    call : Text
